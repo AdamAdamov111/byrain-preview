@@ -16,6 +16,8 @@
   if (hero) {
     var track = $('[data-hero-track]', hero), slides = $$('[data-hero-slide]', hero), dots = $('[data-hero-dots]', hero), count = $('[data-hero-count]', hero);
     var idx = 0, timer = null, DUR = 6500, hold = false, manual = false;
+    /* На сенсорных экранах лента overflow:hidden и двигается transform-ом: нативный скролл со снапом на iOS мешал листать страницу вниз */
+    var coarse = window.matchMedia('(pointer: coarse)').matches;
     slides.forEach(function (_, i) {
       var b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-label', 'Слайд ' + (i + 1));
       b.innerHTML = '<i></i>'; b.addEventListener('click', function () { go(i, true); }); dots.appendChild(b);
@@ -28,7 +30,8 @@
     }
     function go(i, user) {
       idx = (i + slides.length) % slides.length;
-      track.scrollTo({ left: slides[idx].offsetLeft, behavior: reduce ? 'auto' : 'smooth' });
+      if (coarse) track.style.transform = 'translate3d(' + (-idx * 100) + '%,0,0)';
+      else track.scrollTo({ left: slides[idx].offsetLeft, behavior: reduce ? 'auto' : 'smooth' });
       paint(); if (user) stop(); else restart();
     }
     /* после свайпа, точки или стрелки автоплей не возобновляется: слайдами управляет человек */
@@ -37,7 +40,9 @@
     $('[data-hero-prev]', hero).addEventListener('click', function () { go(idx - 1, true); });
     $('[data-hero-next]', hero).addEventListener('click', function () { go(idx + 1, true); });
     var raf = 0;
-    track.addEventListener('scroll', function () {
+    /* На сенсорных экранах overflow:hidden стоит на секции (обрезка не должна ехать вместе с лентой): скролл там бывает только от фокуса с клавиатуры, переводим его в сдвиг transform */
+    if (coarse) hero.addEventListener('scroll', function () { var l = hero.scrollLeft; if (l) { hero.scrollLeft = 0; go(idx + Math.round(l / hero.clientWidth), true); } }, { passive: true });
+    else track.addEventListener('scroll', function () {
       if (raf) return;
       raf = requestAnimationFrame(function () {
         raf = 0; var c = track.scrollLeft + track.clientWidth / 2, best = 0, bd = Infinity;
@@ -47,7 +52,7 @@
     }, { passive: true });
     ['pointerdown', 'touchstart'].forEach(function (ev) { track.addEventListener(ev, function () { hold = true; }, { passive: true }); });
     ['pointerup', 'touchend', 'pointercancel'].forEach(function (ev) { track.addEventListener(ev, function () { hold = false; restart(); }, { passive: true }); });
-    /* Свайп: касанием лента не прокручивается (touch-action:pan-y), чтобы страница листалась вниз без залипания; слайды переключаем сами */
+    /* Свайп: касанием лента не прокручивается (на сенсорных экранах overflow:hidden, на остальных touch-action:pan-y); слайды переключаем сами */
     var tx = 0, ty = 0, lx = 0, ly = 0, swiping = false;
     track.addEventListener('touchstart', function (e) { var t = e.touches[0]; tx = lx = t.clientX; ty = ly = t.clientY; swiping = true; }, { passive: true });
     track.addEventListener('touchmove', function (e) { if (!swiping) return; var t = e.touches[0]; lx = t.clientX; ly = t.clientY; }, { passive: true });
