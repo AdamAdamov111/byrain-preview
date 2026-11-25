@@ -62,6 +62,79 @@
     paint(); restart();
   }
 
+  /* Сторис по задачам: кружки остаются обычными ссылками, по клику открываем слайды поверх страницы */
+  var sData = document.getElementById('stories-data');
+  if (sData) {
+    var storiesList = [];
+    try { storiesList = JSON.parse(sData.textContent || '[]'); } catch (e) { storiesList = []; }
+    var sv = document.createElement('div');
+    sv.className = 'sv'; sv.setAttribute('role', 'dialog'); sv.setAttribute('aria-modal', 'true'); sv.setAttribute('aria-label', 'Подбор по задаче'); sv.hidden = true;
+    sv.innerHTML = '<div class="sv__frame">'
+      + '<div class="sv__bars" data-sv-bars></div>'
+      + '<div class="sv__head"><span data-sv-label></span><button type="button" class="sv__close" data-sv-close aria-label="Закрыть">×</button></div>'
+      + '<img class="sv__img" alt="" data-sv-img><div class="sv__shade"></div>'
+      + '<button type="button" class="sv__tap sv__tap--prev" data-sv-prev aria-label="Предыдущий слайд"></button>'
+      + '<button type="button" class="sv__tap sv__tap--next" data-sv-next aria-label="Следующий слайд"></button>'
+      + '<div class="sv__copy"><span class="label" data-sv-eyebrow></span><div class="sv__title" data-sv-title></div><p class="sv__text" data-sv-text></p><a class="btn sv__cta" data-sv-cta href="#">Открыть</a></div>'
+      + '</div>';
+    (document.querySelector('.v2') || document.body).appendChild(sv);
+    var svBars = $('[data-sv-bars]', sv), svImg = $('[data-sv-img]', sv), svLabel = $('[data-sv-label]', sv), svEyebrow = $('[data-sv-eyebrow]', sv), svTitle = $('[data-sv-title]', sv), svText = $('[data-sv-text]', sv), svCta = $('[data-sv-cta]', sv);
+    var curStory = null, curSlide = 0, svTimer = null, SV_DUR = 5000, lastFocus = null;
+    function svRender() {
+      var slide = curStory.slides[curSlide];
+      svBars.innerHTML = '';
+      curStory.slides.forEach(function (_, n) { var i = document.createElement('i'); if (n < curSlide) i.className = 'is-done'; if (n === curSlide) i.className = 'is-active'; svBars.appendChild(i); });
+      svLabel.textContent = curStory.label; svImg.src = slide.img; svImg.alt = slide.alt || '';
+      svEyebrow.textContent = slide.eyebrow; svTitle.textContent = slide.title; svText.textContent = slide.text;
+      svCta.textContent = slide.cta.label; svCta.href = slide.cta.href;
+      var nxt = curStory.slides[curSlide + 1]; if (nxt) { var pre = new Image(); pre.src = nxt.img; }
+      clearTimeout(svTimer);
+      if (!reduce) svTimer = setTimeout(svNext, SV_DUR);
+    }
+    function svOpen(story, index) {
+      curStory = story; curSlide = index || 0; lastFocus = document.activeElement;
+      sv.hidden = false; sv.classList.add('is-open'); document.documentElement.classList.add('sv-lock');
+      svRender(); $('[data-sv-close]', sv).focus();
+    }
+    function svClose() {
+      clearTimeout(svTimer); sv.classList.remove('is-open'); sv.hidden = true; document.documentElement.classList.remove('sv-lock'); curStory = null;
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+    function svNext() {
+      if (!curStory) return;
+      if (curSlide + 1 < curStory.slides.length) { curSlide += 1; svRender(); return; }
+      var k = storiesList.indexOf(curStory);
+      if (k + 1 < storiesList.length) svOpen(storiesList[k + 1], 0); else svClose();
+    }
+    function svPrev() {
+      if (!curStory) return;
+      if (curSlide > 0) { curSlide -= 1; svRender(); return; }
+      var k = storiesList.indexOf(curStory);
+      if (k > 0) svOpen(storiesList[k - 1], storiesList[k - 1].slides.length - 1); else svRender();
+    }
+    $('[data-sv-close]', sv).addEventListener('click', svClose);
+    $('[data-sv-next]', sv).addEventListener('click', svNext);
+    $('[data-sv-prev]', sv).addEventListener('click', svPrev);
+    sv.addEventListener('click', function (e) { if (e.target === sv) svClose(); });
+    /* пауза, пока палец удерживает экран */
+    ['pointerdown', 'touchstart'].forEach(function (ev) { sv.addEventListener(ev, function () { if (!curStory) return; sv.classList.add('is-paused'); clearTimeout(svTimer); }, { passive: true }); });
+    ['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(function (ev) { sv.addEventListener(ev, function () { if (!curStory) return; sv.classList.remove('is-paused'); clearTimeout(svTimer); if (!reduce) svTimer = setTimeout(svNext, SV_DUR); }, { passive: true }); });
+    /* свайп влево и вправо между слайдами, свайп вниз закрывает */
+    var sx = 0, sy = 0;
+    sv.addEventListener('touchstart', function (e) { var t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, { passive: true });
+    sv.addEventListener('touchend', function (e) { var t = e.changedTouches[0]; var dx = t.clientX - sx, dy = t.clientY - sy; if (Math.abs(dy) > 90 && Math.abs(dy) > Math.abs(dx)) { if (dy > 0) svClose(); return; } if (Math.abs(dx) > 50) { if (dx < 0) svNext(); else svPrev(); } }, { passive: true });
+    document.addEventListener('keydown', function (e) { if (!curStory) return; if (e.key === 'Escape') svClose(); if (e.key === 'ArrowRight') svNext(); if (e.key === 'ArrowLeft') svPrev(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) clearTimeout(svTimer); else if (curStory && !reduce) svTimer = setTimeout(svNext, SV_DUR); });
+    $$('[data-story]').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        var story = null;
+        storiesList.forEach(function (item) { if (item.id === link.getAttribute('data-story')) story = item; });
+        if (!story || !story.slides || !story.slides.length) return;
+        e.preventDefault(); link.classList.add('is-seen'); svOpen(story, 0);
+      });
+    });
+  }
+
   /* Счётчики доказательств */
   $$('[data-count]').forEach(function (el) {
     var end = parseInt(el.getAttribute('data-count'), 10), done = false;

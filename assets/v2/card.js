@@ -84,21 +84,6 @@
     $$('.reveal').forEach(function (el) { ro.observe(el); });
   } else { $$('.reveal').forEach(function (el) { el.classList.add('is-in'); }); }
 
-  /* Пометки для согласования: кнопка видна только с ?dev в адресе */
-  var dt = $('#dev-toggle');
-  if (dt) {
-    var devAllowed = /[?&]dev(=|&|$)/.test(location.search);
-    var applyDev = function (on) { document.documentElement.classList.toggle('dev', on); dt.setAttribute('aria-pressed', String(on)); try { localStorage.setItem('byrain-v2-dev', on ? '1' : '0'); } catch (e) {} };
-    if (devAllowed) {
-      var saved = false; try { saved = localStorage.getItem('byrain-v2-dev') === '1'; } catch (e) {}
-      applyDev(saved);
-      dt.addEventListener('click', function () { applyDev(!document.documentElement.classList.contains('dev')); });
-    } else {
-      dt.hidden = true;
-      document.documentElement.classList.remove('dev');
-    }
-  }
-
   /* FAQ: открыт один вопрос за раз */
   var ds = $$('.faq details');
   ds.forEach(function (d) { d.addEventListener('toggle', function () { if (d.open) ds.forEach(function (o) { if (o !== d) o.open = false; }); }); });

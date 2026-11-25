@@ -56,9 +56,5 @@
   // боковая навигация
   var secs=$$('[data-nav]'),dots=$$('.sidenav a');
   if(secs.length){var no=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){var id=e.target.id;dots.forEach(function(d){d.classList.toggle('is-on',d.getAttribute('href')==='#'+id);});}});},{rootMargin:'-40% 0px -50% 0px'});secs.forEach(function(s){no.observe(s);});}
-  // пометки для согласования
-  var dt=$('#dev-toggle');if(dt){dt.addEventListener('click',function(){var on=document.documentElement.classList.toggle('dev');dt.setAttribute('aria-pressed',on);});}
 })();
 
-/* пометки для согласования видны только с ?dev в адресе */
-(function(){var dt=document.getElementById('dev-toggle');if(dt&&!/[?&]dev(=|&|$)/.test(location.search)){dt.hidden=true;document.documentElement.classList.remove('dev');}})();
