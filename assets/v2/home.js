@@ -28,11 +28,17 @@
       if (count) count.textContent = ('0' + (idx + 1)).slice(-2) + ' / ' + ('0' + slides.length).slice(-2);
       hero.setAttribute('data-slide', String(idx));
     }
+    /* На сенсорных экранах высота ленты равна высоте текущего слайда: иначе короткие слайды тянутся до самого длинного и под кнопками остаётся пустота */
+    function fit() { if (coarse) track.style.height = slides[idx].offsetHeight + 'px'; }
     function go(i, user) {
       idx = (i + slides.length) % slides.length;
       if (coarse) track.style.transform = 'translate3d(' + (-idx * 100) + '%,0,0)';
       else track.scrollTo({ left: slides[idx].offsetLeft, behavior: reduce ? 'auto' : 'smooth' });
-      paint(); if (user) stop(); else restart();
+      paint(); fit(); if (user) stop(); else restart();
+    }
+    if (coarse) {
+      fit(); window.addEventListener('resize', fit); window.addEventListener('load', fit);
+      if ('ResizeObserver' in window) { var fitObs = new ResizeObserver(function () { fit(); }); slides.forEach(function (s) { fitObs.observe(s); }); }
     }
     /* после свайпа, точки или стрелки автоплей не возобновляется: слайдами управляет человек */
     function stop() { manual = true; clearInterval(timer); timer = null; ds.forEach(function (d) { d.classList.remove('is-anim'); }); }
